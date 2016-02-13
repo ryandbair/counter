@@ -1,0 +1,13 @@
+[package]
+name = "counter"
+version = "1.0.0"
+authors = ["developers@trafficland.com"]
+
+[dependencies]
+aws-elb-abacus = { git = "https://github.com/ereichert/aws-elb-abacus.git", branch = "develop" }
+docopt = "0.6"
+rustc-serialize = "0.3"
+env_logger = "0.3.2"
+chrono = "0.2.17"
+urlparse = "0.7.2"
+log = "0.3.5"
