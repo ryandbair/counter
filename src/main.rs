@@ -123,12 +123,12 @@ fn aggregate_record(aggregate_record: AggregateELBRecord, aggregation: &mut Hash
 }
 
 const USAGE: &'static str = "
-aws-abacus
+counter
 
 Usage:
-  aws-abacus <log-location>
-  aws-abacus (-b | --benchmark) <log-location>
-  aws-abacus (-h | --help)
+  counter <log-location>
+  counter (-b | --benchmark) <log-location>
+  counter (-h | --help)
 
 Options:
   -h --help         Show this screen.
