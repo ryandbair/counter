@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = ["developers@trafficland.com"]
 
 [dependencies]
-aws-elb-abacus = { git = "https://github.com/ereichert/aws-elb-abacus.git", branch = "develop" }
+elp = { git = "https://github.com/ereichert/elp.git", branch = "develop" }
 docopt = "0.6"
 rustc-serialize = "0.3"
 env_logger = "0.3.2"

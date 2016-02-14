@@ -1,16 +1,15 @@
 extern crate rustc_serialize;
 #[macro_use]
-extern crate aws_elb_abacus;
+extern crate elp;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
 extern crate docopt;
 use docopt::Docopt;
 use std::path;
-use aws_elb_abacus::elb_log_files;
 extern crate chrono;
 use chrono::{DateTime, UTC};
-use aws_elb_abacus::elb_log_files::ParsingResult;
+use elp::ParsingResult;
 use std::collections::HashMap;
 extern crate urlparse;
 use urlparse::{Url, urlparse};
@@ -41,12 +40,12 @@ fn main() {
     };
 
     let mut filenames = Vec::new();
-    match elb_log_files::file_list(log_location, &mut filenames) {
+    match elp::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
             let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
 
-            let number_of_records = elb_log_files::process_files(&filenames, &mut |parsing_result: ParsingResult| {
+            let number_of_records = elp::process_files(&filenames, &mut |parsing_result: ParsingResult| {
                 parsing_result_handler(parsing_result, &mut agg);
             });
             debug!("Processed {} records in {} files.", number_of_records, num_files);
