@@ -2,7 +2,6 @@
 name = "counter"
 version = "1.0.0"
 authors = ["developers@trafficland.com"]
-publish = false
 
 [dependencies]
 elp = { git = "https://github.com/ereichert/elp.git", branch = "develop" }
