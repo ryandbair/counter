@@ -4,7 +4,7 @@ version = "1.0.0"
 dependencies = [
  "chrono 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "docopt 0.6.78 (registry+https://github.com/rust-lang/crates.io-index)",
- "elp 1.0.0 (git+https://github.com/ereichert/elp.git?branch=develop)",
+ "elp 0.99.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -40,8 +40,8 @@ dependencies = [
 
 [[package]]
 name = "elp"
-version = "1.0.0"
-source = "git+https://github.com/ereichert/elp.git?branch=develop#1c5b658f7aba668b13b35bb8dd03621f5677e532"
+version = "0.99.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
