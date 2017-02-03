@@ -5,13 +5,15 @@ extern crate elp;
 extern crate log;
 extern crate env_logger;
 extern crate docopt;
+extern crate chrono;
+extern crate urlparse;
+extern crate counter;
+
 use docopt::Docopt;
 use std::path;
-extern crate chrono;
 use chrono::{DateTime, UTC};
 use elp::ParsingResult;
 use std::collections::HashMap;
-extern crate urlparse;
 use urlparse::{Url, urlparse};
 use std::io::Write;
 
@@ -40,7 +42,7 @@ fn main() {
     };
 
     let mut filenames = Vec::new();
-    match elp::file_list(log_location, &mut filenames) {
+    match counter::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
             let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
