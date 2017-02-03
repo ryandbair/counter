@@ -1,5 +1,4 @@
 extern crate rustc_serialize;
-#[macro_use]
 extern crate elp;
 #[macro_use]
 extern crate log;
@@ -47,7 +46,7 @@ fn main() {
             let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
 
-            let number_of_records = elp::process_files(&filenames, &mut |parsing_result: ParsingResult| {
+            let number_of_records = counter::process_files(&filenames, &mut |parsing_result: ParsingResult| {
                 parsing_result_handler(parsing_result, &mut agg);
             });
             debug!("Processed {} records in {} files.", number_of_records, num_files);
