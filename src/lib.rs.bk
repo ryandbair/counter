@@ -22,7 +22,9 @@ pub enum CounterError<'a> {
     /// disk.
     LineReadError,
     /// Returned if an ELB file cannot be opened.  Most likely the result of a bad file on disk.
-    CouldNotOpenFile { path: String },
+    CouldNotOpenFile {
+        path: String,
+    },
     RecordParsingErrors(ParsingErrors<'a>),
 }
 
@@ -30,12 +32,8 @@ impl<'a> Display for CounterError<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match *self {
             CounterError::LineReadError => write!(f, "Unable to read a line."),
-            CounterError::CouldNotOpenFile { ref path } => {
-                write!(f, "Unable to open file {}.", path)
-            }
-            CounterError::RecordParsingErrors(ref errs) => {
-                write!(f, "Parsing errors: {:?}.", errs.errors)
-            }
+            CounterError::CouldNotOpenFile { ref path } => write!(f, "Unable to open file {}.", path),
+            CounterError::RecordParsingErrors(ref errs) => write!(f, "Parsing errors: {:?}.", errs.errors),
         }
     }
 }
@@ -52,8 +50,7 @@ impl<'a> Error for CounterError<'a> {
 
 /// A utility method for retrieving all of the paths to ELB log files in a directory.
 ///
-/// If the user uses the
-/// [AWS S3 sync tool](http://docs.aws.amazon.com/cli/latest/reference/s3/sync.html)
+/// If the user uses the [AWS S3 sync tool](http://docs.aws.amazon.com/cli/latest/reference/s3/sync.html)
 /// to download their AWS ELB logs to a local disk the files will be in a very specific directory
 /// hierarchy.  This utility will read the paths of the files, recursively searching a root
 /// specified by the user, and append the paths to the `Vec<DirEntry>`, also provided by the user.
@@ -94,8 +91,8 @@ pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
             Ok(file) => {
                 let file_record_count = handle_file(file, record_handler);
                 debug!("Found {} records in file {}.",
-                       file_record_count,
-                       filename.path().display());
+                file_record_count,
+                filename.path().display());
                 total_record_count += file_record_count;
             }
 
@@ -117,12 +114,13 @@ pub fn handle_file<H>(file: File, record_handler: &mut H) -> usize
     for possible_record in BufReader::new(&file).lines() {
         file_record_count += 1;
         match possible_record {
-            Ok(record) => {
-                record_handler(elp::parse_record(&record)
-                    .map_err(CounterError::RecordParsingErrors))
-            }
+            Ok(record) => record_handler(
+                elp::parse_record(&record).map_err(CounterError::RecordParsingErrors)
+            ),
 
-            Err(_) => record_handler(Err(CounterError::LineReadError)),
+            Err(_) => {
+                record_handler(Err(CounterError::LineReadError))
+            }
         }
     }
 
