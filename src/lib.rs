@@ -14,7 +14,7 @@ use elp::{ELBRecord, ParsingErrors};
 
 pub type CounterResult<'a> = Result<ELBRecord<'a>, CounterError<'a>>;
 
-/// Specific parsing errors that are returned as part of the [ParsingErrors::errors]
+/// Specific parsing errors that are returned as part of the [`ParsingErrors::errors`]
 /// (struct.ParsingErrors.html) collection.
 #[derive(Debug, PartialEq)]
 pub enum CounterError<'a> {
@@ -57,7 +57,7 @@ impl<'a> Error for CounterError<'a> {
 ///
 /// dir: The directory from which the paths of the ELB log files will be procured.
 ///
-/// filenames: A Vec<DirEntry> to which the paths of the ELB log files will be written.
+/// filenames: A Vec<`DirEntry`> to which the paths of the ELB log files will be written.
 pub fn file_list(dir: &Path, filenames: &mut Vec<DirEntry>) -> Result<usize, walkdir::Error> {
     let dir_entries = WalkDir::new(dir)
         .min_depth(1)
@@ -71,7 +71,7 @@ pub fn file_list(dir: &Path, filenames: &mut Vec<DirEntry>) -> Result<usize, wal
 }
 
 /// Attempt to parse every ELB record in every file in `filenames` and pass the results to the
-/// record_handler.
+/// `record_handler`.
 ///
 /// Each file will be opened and each line, which should represent a ELB record, will be passed
 /// through the parser.
@@ -79,7 +79,7 @@ pub fn file_list(dir: &Path, filenames: &mut Vec<DirEntry>) -> Result<usize, wal
 /// # Failures
 ///
 /// All failures including file access, file read, and parsing failures are passed to the
-/// record_handler as a `ParsingErrors`.
+/// `record_handler` as a `ParsingErrors`.
 pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
     where H: FnMut(CounterResult) -> ()
 {

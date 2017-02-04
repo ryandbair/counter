@@ -60,19 +60,16 @@ fn main() {
                 );
             };
 
-            match start {
-                Some(s) => {
-                    let end = UTC::now();
-                    let time = end - s;
-                    println!("Processed {} files having {} records in {} milliseconds and produced {} aggregates.",
-                        num_files,
-                        number_of_records,
-                        time.num_milliseconds(),
-                        agg.len()
-                    );
-                },
-                None => {},
-            };
+            if let Some(start_time) = start {
+                let end_time = UTC::now();
+                let time = end_time - start_time;
+                println!("Processed {} files having {} records in {} milliseconds and produced {} aggregates.",
+                         num_files,
+                         number_of_records,
+                         time.num_milliseconds(),
+                         agg.len()
+                );
+            }
 
             std::process::exit(0);
         },
@@ -98,7 +95,7 @@ fn parsing_result_handler(counter_result: counter::CounterResult, aggregation: &
             let aer = AggregateELBRecord {
                 day: elb_record.timestamp.format("%Y-%m-%d").to_string(),
                 client_address: elb_record.client_address.ip().to_string(),
-                system_name: parse_system_name(&url).unwrap_or("UNDEFINED_SYSTEM".to_owned()),
+                system_name: parse_system_name(&url).unwrap_or_else(|| "UNDEFINED_SYSTEM".to_owned()),
             };
             aggregate_record(aer, aggregation);
         },
