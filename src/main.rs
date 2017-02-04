@@ -11,7 +11,6 @@ extern crate counter;
 use docopt::Docopt;
 use std::path;
 use chrono::{DateTime, UTC};
-use elp::ParsingResult;
 use std::collections::HashMap;
 use urlparse::{Url, urlparse};
 use std::io::Write;
@@ -46,8 +45,8 @@ fn main() {
             let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
 
-            let number_of_records = counter::process_files(&filenames, &mut |parsing_result: ParsingResult| {
-                parsing_result_handler(parsing_result, &mut agg);
+            let number_of_records = counter::process_files(&filenames, &mut |counter_result: counter::CounterResult| {
+                parsing_result_handler(counter_result, &mut agg);
             });
             debug!("Processed {} records in {} files.", number_of_records, num_files);
 
@@ -92,8 +91,8 @@ struct AggregateELBRecord {
     system_name: String,
 }
 
-fn parsing_result_handler(parsing_result: ParsingResult, aggregation: &mut HashMap<AggregateELBRecord, i64>) -> () {
-    match parsing_result {
+fn parsing_result_handler(counter_result: counter::CounterResult, aggregation: &mut HashMap<AggregateELBRecord, i64>) -> () {
+    match counter_result {
         Ok(elb_record) => {
             let url = urlparse(&elb_record.request_url);
             let aer = AggregateELBRecord {
@@ -103,10 +102,8 @@ fn parsing_result_handler(parsing_result: ParsingResult, aggregation: &mut HashM
             };
             aggregate_record(aer, aggregation);
         },
-
-        Err(errors) => {
-            println_stderr!("{}", errors.record);
-        }
+        Err(counter::CounterError::RecordParsingErrors(ref errs)) => println_stderr!("{:?}", errs.record),
+        Err(ref err) => println_stderr!("{:?}", err),
     }
 }
 

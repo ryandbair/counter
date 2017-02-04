@@ -5,10 +5,48 @@ extern crate elp;
 
 use std::path::Path;
 use std::fs::File;
-use std::io::BufReader;
-use std::io::BufRead;
+use std::io::{BufRead, BufReader};
+use std::error::Error;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use walkdir::{DirEntry, WalkDir, WalkDirIterator};
-use elp::{ELBRecordParsingError, ParsingResult, ParsingErrors};
+use elp::{ELBRecord, ParsingErrors};
+
+pub type CounterResult<'a> = Result<ELBRecord<'a>, CounterError<'a>>;
+
+/// Specific parsing errors that are returned as part of the [ParsingErrors::errors]
+/// (struct.ParsingErrors.html) collection.
+#[derive(Debug, PartialEq)]
+pub enum CounterError<'a> {
+    /// Returned if a line in an ELB file cannot be read.  Most likely the result of a bad file on
+    /// disk.
+    LineReadError,
+    /// Returned if an ELB file cannot be opened.  Most likely the result of a bad file on disk.
+    CouldNotOpenFile {
+        path: String,
+    },
+    RecordParsingErrors(ParsingErrors<'a>),
+}
+
+impl<'a> Display for CounterError<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match *self {
+            CounterError::LineReadError => write!(f, "Unable to read a line."),
+            CounterError::CouldNotOpenFile { ref path } => write!(f, "Unable to open file {}.", path),
+            CounterError::RecordParsingErrors(ref errs) => write!(f, "Parsing errors: {:?}.", errs.errors),
+        }
+    }
+}
+
+impl<'a> Error for CounterError<'a> {
+    fn description(&self) -> &str {
+        match *self {
+            CounterError::LineReadError => "failed to read line",
+            CounterError::CouldNotOpenFile { .. } => "failed to open file",
+            CounterError::RecordParsingErrors(_) => "failed to parse record",
+        }
+    }
+}
 
 /// A utility method for retrieving all of the paths to ELB log files in a directory.
 ///
@@ -43,7 +81,7 @@ pub fn file_list(dir: &Path, filenames: &mut Vec<DirEntry>) -> Result<usize, wal
 /// All failures including file access, file read, and parsing failures are passed to the
 /// record_handler as a `ParsingErrors`.
 pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
-    where H: FnMut(ParsingResult) -> ()
+    where H: FnMut(CounterResult) -> ()
 {
 
     let mut total_record_count = 0;
@@ -59,11 +97,8 @@ pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
             }
 
             Err(_) => {
-                record_handler(Err(ParsingErrors {
-                    record: "",
-                    errors: vec![ELBRecordParsingError::CouldNotOpenFile { // TODO: elp::ELBRecordParsingError::CouldNotOpenFile needs to be moved to counter.
-                        path: format!("{}", filename.path().display()),
-                    }],
+                record_handler(Err(CounterError::CouldNotOpenFile {
+                    path: format!("{}", filename.path().display()),
                 }))
             }
         }
@@ -73,19 +108,18 @@ pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
 }
 
 pub fn handle_file<H>(file: File, record_handler: &mut H) -> usize
-    where H: FnMut(ParsingResult) -> ()
+    where H: FnMut(CounterResult) -> ()
 {
     let mut file_record_count = 0;
     for possible_record in BufReader::new(&file).lines() {
         file_record_count += 1;
         match possible_record {
-            Ok(record) => record_handler(elp::parse_record(&record)),
+            Ok(record) => record_handler(
+                elp::parse_record(&record).map_err(CounterError::RecordParsingErrors)
+            ),
 
             Err(_) => {
-                record_handler(Err(ParsingErrors {
-                    record: "",
-                    errors: vec![ELBRecordParsingError::LineReadError],
-                }))
+                record_handler(Err(CounterError::LineReadError))
             }
         }
     }
