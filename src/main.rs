@@ -14,6 +14,7 @@ use chrono::{DateTime, UTC};
 use std::collections::HashMap;
 use urlparse::{Url, urlparse};
 use std::io::Write;
+use counter::file_handling;
 
 macro_rules! println_stderr(
     ($($arg:tt)*) => (
@@ -40,13 +41,13 @@ fn main() {
     };
 
     let mut filenames = Vec::new();
-    match counter::file_list(log_location, &mut filenames) {
+    match file_handling::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
             let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
 
             let number_of_records =
-                counter::process_files(&filenames,
+                file_handling::process_files(&filenames,
                                        &mut |counter_result: counter::CounterResult| {
                                            parsing_result_handler(counter_result, &mut agg);
                                        });
