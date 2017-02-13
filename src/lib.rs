@@ -2,12 +2,24 @@ extern crate walkdir;
 #[macro_use]
 extern crate log;
 extern crate elp;
+extern crate urlparse;
 
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::error::Error;
 
+#[macro_export]
+macro_rules! println_stderr(
+    ($($arg:tt)*) => (
+        match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
+            Ok(_) => {},
+            Err(x) => panic!("Unable to write to stderr: {}", x),
+        }
+    )
+);
+
 pub mod file_handling;
+pub mod record_handling;
 
 pub type CounterResult<'a> = Result<elp::ELBRecord<'a>, CounterError<'a>>;
 
@@ -46,4 +58,3 @@ impl<'a> Error for CounterError<'a> {
         }
     }
 }
-

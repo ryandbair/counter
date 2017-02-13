@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use walkdir;
 use walkdir::{DirEntry, WalkDir, WalkDirIterator};
 use elp;
-use ::{CounterResult, CounterError};
+use {CounterResult, CounterError};
 
 /// A utility method for retrieving all of the paths to ELB log files in a directory.
 ///
@@ -50,8 +50,8 @@ pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
             Ok(file) => {
                 let file_record_count = handle_file(file, record_handler);
                 debug!("Found {} records in file {}.",
-                file_record_count,
-                filename.path().display());
+                       file_record_count,
+                       filename.path().display());
                 total_record_count += file_record_count;
             }
 

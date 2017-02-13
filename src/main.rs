@@ -5,25 +5,15 @@ extern crate log;
 extern crate env_logger;
 extern crate docopt;
 extern crate chrono;
-extern crate urlparse;
+#[macro_use]
 extern crate counter;
 
 use docopt::Docopt;
 use std::path;
 use chrono::{DateTime, UTC};
 use std::collections::HashMap;
-use urlparse::{Url, urlparse};
+use counter::{file_handling, record_handling};
 use std::io::Write;
-use counter::file_handling;
-
-macro_rules! println_stderr(
-    ($($arg:tt)*) => (
-        match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
-            Ok(_) => {},
-            Err(x) => panic!("Unable to write to stderr: {}", x),
-        }
-    )
-);
 
 fn main() {
     env_logger::init().unwrap();
@@ -43,14 +33,16 @@ fn main() {
     let mut filenames = Vec::new();
     match file_handling::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
-            let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
+            let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
 
             let number_of_records =
                 file_handling::process_files(&filenames,
-                                       &mut |counter_result: counter::CounterResult| {
-                                           parsing_result_handler(counter_result, &mut agg);
-                                       });
+                                             &mut |counter_result: counter::CounterResult| {
+                                                 record_handling::parsing_result_handler(
+                                                     counter_result, &mut agg
+                                                 );
+                                             });
             debug!("Processed {} records in {} files.",
                    number_of_records,
                    num_files);
@@ -86,47 +78,6 @@ fn main() {
     };
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct AggregateELBRecord {
-    day: String,
-    client_address: String,
-    system_name: String,
-}
-
-fn parsing_result_handler(counter_result: counter::CounterResult,
-                          aggregation: &mut HashMap<AggregateELBRecord, i64>)
-                          -> () {
-    match counter_result {
-        Ok(elb_record) => {
-            let url = urlparse(&elb_record.request_url);
-            let aer = AggregateELBRecord {
-                day: elb_record.timestamp.format("%Y-%m-%d").to_string(),
-                client_address: elb_record.client_address.ip().to_string(),
-                system_name: parse_system_name(&url)
-                    .unwrap_or_else(|| "UNDEFINED_SYSTEM".to_owned()),
-            };
-            aggregate_record(aer, aggregation);
-        }
-        Err(counter::CounterError::RecordParsingErrors(ref errs)) => {
-            println_stderr!("{:?}", errs.record)
-        }
-        Err(ref err) => println_stderr!("{:?}", err),
-    }
-}
-
-fn parse_system_name(url: &Url) -> Option<String> {
-    url.get_parsed_query()
-        .map(|query_map| query_map.get("system").map(|systems| systems[0].clone()))
-        .unwrap_or_else(|| None)
-}
-
-fn aggregate_record(aggregate_record: AggregateELBRecord,
-                    aggregation: &mut HashMap<AggregateELBRecord, i64>)
-                    -> () {
-    let total = aggregation.entry(aggregate_record).or_insert(0);
-    *total += 1;
-}
-
 const USAGE: &'static str = "
 counter
 
@@ -144,61 +95,4 @@ Options:
 struct Args {
     arg_log_location: String,
     flag_benchmark: bool,
-}
-
-#[cfg(test)]
-mod tests {
-
-    use std::collections::HashMap;
-    use AggregateELBRecord;
-    use aggregate_record;
-
-    const TEST_RECORD: &'static str = "2015-08-15T23:43:05.302180Z elb-name 172.16.1.6:54814 \
-    172.16.1.5:9000 0.000039 0.145507 0.00003 200 200 0 7582 \
-    \"GET http://some.domain.com:80/path0/path1?param0=p0&param1=p1 HTTP/1.1\"\
-    ";
-
-    #[test]
-    fn inserting_two_records_with_different_values_creates_two_entries_each_recorded_once() {
-        let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
-
-        let ar0 = AggregateELBRecord {
-            day: "2015-08-15".to_owned(),
-            client_address: "172.16.1.6:54814".to_owned(),
-            system_name: "sys1".to_owned(),
-        };
-
-        let ar1 = AggregateELBRecord {
-            day: "2015-08-15".to_owned(),
-            client_address: "172.16.1.6:54814".to_owned(),
-            system_name: "sys2".to_owned(),
-        };
-
-        aggregate_record(ar0, &mut agg);
-        aggregate_record(ar1, &mut agg);
-
-        assert_eq!(agg.len(), 2);
-        for (_, total) in agg {
-            assert_eq!(total, 1)
-        }
-    }
-
-    #[test]
-    fn inserting_two_records_with_the_same_values_increases_the_total_correctly() {
-        let mut agg: HashMap<AggregateELBRecord, i64> = HashMap::new();
-
-        let ar0 = AggregateELBRecord {
-            day: "2015-08-15".to_owned(),
-            client_address: "172.16.1.6:54814".to_owned(),
-            system_name: "sys1".to_owned(),
-        };
-
-        let ar1 = ar0.clone();
-        let ar3 = ar0.clone();
-
-        aggregate_record(ar0, &mut agg);
-        aggregate_record(ar1, &mut agg);
-
-        assert_eq!(agg[&ar3], 2);
-    }
 }
