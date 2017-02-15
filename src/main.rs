@@ -3,12 +3,11 @@ extern crate elp;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
-extern crate docopt;
+extern crate clap;
 extern crate chrono;
 #[macro_use]
 extern crate counter;
 
-use docopt::Docopt;
 use std::path;
 use chrono::{DateTime, UTC};
 use std::collections::HashMap;
@@ -17,14 +16,22 @@ use std::io::Write;
 
 fn main() {
     env_logger::init().unwrap();
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.decode())
-        .unwrap_or_else(|e| e.exit());
 
-    let log_location = &path::Path::new(&args.arg_log_location);
+    let args = clap::App::new("counter")
+        .arg(clap::Arg::with_name(LOG_LOCATION_ARG)
+            .required(true)
+            .help("The root directory when the log files are stored."))
+        .arg(clap::Arg::with_name(BENCHMARK_ARG)
+            .required(false)
+            .help("Time the run and provide statistics at the end of the run.")
+            .long("benchmark")
+            .short("b"))
+        .get_matches();
+
+    let log_location = &path::Path::new(args.value_of(LOG_LOCATION_ARG).unwrap());
     debug!("Running summary on {}.", log_location.to_str().unwrap());
 
-    let start: Option<DateTime<UTC>> = if args.flag_benchmark {
+    let start: Option<DateTime<UTC>> = if args.is_present(BENCHMARK_ARG) {
         Some(UTC::now())
     } else {
         None
@@ -78,21 +85,5 @@ fn main() {
     };
 }
 
-const USAGE: &'static str = "
-counter
-
-Usage:
-  counter <log-location>
-  counter (-b | --benchmark) <log-location>
-  counter (-h | --help)
-
-Options:
-  -h --help         Show this screen.
-  -b --benchmark    Turn on debug output
-";
-
-#[derive(Debug, RustcDecodable)]
-struct Args {
-    arg_log_location: String,
-    flag_benchmark: bool,
-}
+const LOG_LOCATION_ARG: &'static str = "log-location";
+const BENCHMARK_ARG: &'static str = "benchmark";
