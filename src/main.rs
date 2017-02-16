@@ -7,6 +7,7 @@ extern crate clap;
 extern crate chrono;
 #[macro_use]
 extern crate counter;
+extern crate num_cpus;
 
 use std::path;
 use chrono::{DateTime, UTC};
@@ -30,6 +31,9 @@ fn main() {
 
     let log_location = &path::Path::new(args.value_of(LOG_LOCATION_ARG).unwrap());
     debug!("Running summary on {}.", log_location.to_str().unwrap());
+
+    let total_cpus = num_cpus::get();
+    println!("total_cpus = {:?}", total_cpus);
 
     let start: Option<DateTime<UTC>> = if args.is_present(BENCHMARK_ARG) {
         Some(UTC::now())
