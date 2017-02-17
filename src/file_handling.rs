@@ -18,13 +18,13 @@ use {CounterResult, CounterError};
 ///
 /// filenames: A Vec<`DirEntry`> to which the paths of the ELB log files will be written.
 pub fn file_list(dir: &Path, filenames: &mut Vec<DirEntry>) -> Result<usize, walkdir::Error> {
-    let dir_entries = WalkDir::new(dir)
-        .min_depth(1)
-        .into_iter()
-        .filter_entry(|e| e.file_name().to_str().map(|s| s.ends_with(".log")).unwrap_or(false));
+    let dir_entries = WalkDir::new(dir);
     for entry in dir_entries {
-        let entry = entry?;
-        filenames.push(entry);
+        if let Ok(dir_entry) = entry {
+            if dir_entry.path().extension().map(|ext| ext.eq("log")).unwrap_or(false) {
+                filenames.push(dir_entry);
+            }
+        }
     }
     Ok(filenames.len())
 }
