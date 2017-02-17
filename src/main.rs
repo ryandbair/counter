@@ -8,12 +8,16 @@ extern crate chrono;
 #[macro_use]
 extern crate counter;
 extern crate num_cpus;
+extern crate scoped_pool as sp;
+extern crate walkdir;
 
 use std::path;
 use chrono::{DateTime, UTC};
 use std::collections::HashMap;
 use counter::{file_handling, record_handling};
 use std::io::Write;
+use std::sync::mpsc;
+use walkdir::{DirEntry, WalkDir, WalkDirIterator};
 
 fn main() {
     env_logger::init().unwrap();
@@ -32,62 +36,85 @@ fn main() {
     let log_location = &path::Path::new(args.value_of(LOG_LOCATION_ARG).unwrap());
     debug!("Running summary on {}.", log_location.to_str().unwrap());
 
-    let total_cpus = num_cpus::get();
-    println!("total_cpus = {:?}", total_cpus);
-
     let start: Option<DateTime<UTC>> = if args.is_present(BENCHMARK_ARG) {
         Some(UTC::now())
     } else {
         None
     };
 
+    let pool = sp::Pool::new(num_cpus::get());
+
     let mut filenames = Vec::new();
-    match file_handling::file_list(log_location, &mut filenames) {
+    let exit_code = match file_handling::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
-            let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
-            debug!("Found {} files.", num_files);
-
-            let number_of_records =
-                file_handling::process_files(&filenames,
-                                             &mut |counter_result: counter::CounterResult| {
-                                                 record_handling::parsing_result_handler(
-                                                     counter_result, &mut agg
-                                                 );
-                                             });
-            debug!("Processed {} records in {} files.",
-                   number_of_records,
-                   num_files);
-
-            for (aggregate, total) in &agg {
-                println!("{},{},{},{}",
-                         aggregate.system_name,
-                         aggregate.day,
-                         aggregate.client_address,
-                         total);
+//            let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
+//            debug!("Found {} files.", num_files);
+//
+//            let number_of_records =
+//                file_handling::process_files(&filenames,
+//                                             &mut |counter_result: counter::CounterResult| {
+//                                                 record_handling::parsing_result_handler(
+//                                                     counter_result, &mut agg
+//                                                 );
+//                                             });
+//            debug!("Processed {} records in {} files.",
+//                   number_of_records,
+//                   num_files);
+//
+//            for (aggregate, total) in &agg {
+//                println!("{},{},{},{}",
+//                         aggregate.system_name,
+//                         aggregate.day,
+//                         aggregate.client_address,
+//                         total);
+//            }
+//
+//            if let Some(start_time) = start {
+//                let end_time = UTC::now();
+//                let time = end_time - start_time;
+//                println!("Processed {} files having {} records in {} milliseconds and produced \
+//                          {} aggregates.",
+//                         num_files,
+//                         number_of_records,
+//                         time.num_milliseconds(),
+//                         agg.len());
+//            }
+            for x in 0..pool.workers() {
+                let (filename_sender, filename_receiver) = mpsc::channel::<_>();
+                let (agg_sender, agg_receiver) = mpsc::channel::<_>();
+                pool.spawn(move ||  start_file_processor(filename_receiver, agg_sender) );
+                filename_sender.send(filenames[x].clone());
             }
-
-            if let Some(start_time) = start {
-                let end_time = UTC::now();
-                let time = end_time - start_time;
-                println!("Processed {} files having {} records in {} milliseconds and produced \
-                          {} aggregates.",
-                         num_files,
-                         number_of_records,
-                         time.num_milliseconds(),
-                         agg.len());
-            }
-
-            std::process::exit(0);
+            EXIT_SUCCESS
         }
 
         Err(e) => {
             println_stderr!("The following error occurred while trying to get the list of files. \
                              {}",
                             e);
-            std::process::exit(1);
+            EXIT_FAILURE
         }
     };
+
+    pool.shutdown();
+    std::process::exit(exit_code);
+}
+
+fn start_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sender: mpsc::Sender<HashMap<record_handling::AggregateELBRecord, i64>>) -> () {
+    let mut done = false;
+    while !done {
+        done = match filename_receiver.recv() {
+            Ok(filename) => {
+                println!("filename_receiver.recv() = {:?}", filename);
+                true
+            },
+
+            Err(_) => false
+        }
+    }
 }
 
 const LOG_LOCATION_ARG: &'static str = "log-location";
 const BENCHMARK_ARG: &'static str = "benchmark";
+const EXIT_SUCCESS: i32 = 0;
+const EXIT_FAILURE: i32 = 1;
