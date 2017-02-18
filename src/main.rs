@@ -110,6 +110,7 @@ fn run_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sen
     while !done {
         done = match filename_receiver.recv() {
             Ok(filename) => {
+                debug!("Received filename {}.", filename.path().display());
                 let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
                 file_handling::process_file(&filename,
                   &mut |counter_result: counter::CounterResult| {
@@ -117,7 +118,7 @@ fn run_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sen
                           counter_result, &mut agg
                       );
                   });
-                println!("filename_receiver.recv() = {:?}, aggs = {}", filename, agg.len());
+                debug!("Found {} aggregates in {}.", agg.len(), filename.path().display());
                 true
             },
 
