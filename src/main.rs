@@ -83,7 +83,7 @@ fn main() {
                 let (filename_sender, filename_receiver) = mpsc::channel::<_>();
                 let (agg_sender, agg_receiver) = mpsc::channel::<_>();
                 pool.spawn(move ||  run_file_processor(filename_receiver, agg_sender) );
-                filename_sender.send(filenames[x].clone());
+                filename_sender.send(ParsingMessages::Filename(filenames[x].clone()));
             }
             EXIT_SUCCESS
         }
@@ -100,16 +100,27 @@ fn main() {
     std::process::exit(exit_code);
 }
 
+enum AggregationMessages {
+    Aggregate(HashMap<record_handling::AggregateELBRecord, i64>),
+    Done
+}
+
+enum ParsingMessages {
+    Filename(DirEntry),
+    Done
+}
+
 // TODO: Test this.
 // TODO: Use a real file.
-fn run_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sender: mpsc::Sender<HashMap<record_handling::AggregateELBRecord, i64>>) -> () {
+fn run_file_processor(filename_receiver: mpsc::Receiver<ParsingMessages>,
+                      aggregate_sender: mpsc::Sender<AggregationMessages>) -> () {
     let mut done = false;
     // TODO: There needs to be a timeout here to ensure the program doesn't run forever.
     // TODO: Make use of try_rec.
     // TODO: Report a timeout back to main.
     while !done {
         done = match filename_receiver.recv() {
-            Ok(filename) => {
+            Ok(ParsingMessages::Filename(filename)) => {
                 debug!("Received filename {}.", filename.path().display());
                 let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
                 file_handling::process_file(&filename,
@@ -119,10 +130,10 @@ fn run_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sen
                       );
                   });
                 debug!("Found {} aggregates in {}.", agg.len(), filename.path().display());
-                true
+                false
             },
-
-            Err(_) => false
+            Ok(ParsingMessages::Done) => true,
+            Err(_) => true,
         }
     }
 }
