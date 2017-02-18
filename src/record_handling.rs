@@ -34,6 +34,15 @@ fn parse_system_name(url: &Url) -> Option<String> {
         .unwrap_or_else(|| None)
 }
 
+pub fn aggregate_records(new_aggs: &HashMap<AggregateELBRecord, i64>,
+                     aggregation: &mut HashMap<AggregateELBRecord, i64>)
+                     -> () {
+    for (agg_key, agg_val) in new_aggs {
+        let total = aggregation.entry(agg_key.clone()).or_insert(0);
+        *total += *agg_val;
+    }
+ }
+
 fn aggregate_record(aggregate_record: AggregateELBRecord,
                     aggregation: &mut HashMap<AggregateELBRecord, i64>)
                     -> () {

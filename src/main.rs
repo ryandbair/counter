@@ -49,12 +49,39 @@ fn main() {
         Ok(num_files) => {
             let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
-            for x in 0..pool.workers() {
+            let mut filename_senders = Vec::new();
+            let (agg_sender, agg_receiver) = mpsc::channel::<_>();
+            for _ in 0..pool.workers() {
                 let (filename_sender, filename_receiver) = mpsc::channel::<_>();
-                let (agg_sender, agg_receiver) = mpsc::channel::<_>();
-                pool.spawn(move ||  run_file_processor(filename_receiver, agg_sender) );
-                filename_sender.send(ParsingMessages::Filename(filenames[x].clone()));
+                filename_senders.push(filename_sender);
+                let cloned_agg_sender = agg_sender.clone();
+                pool.spawn(move ||  run_file_processor(filename_receiver, cloned_agg_sender) );
+            }
+
+            let mut filename_senders_idx = 0;
+            let num_filename_senders = filename_senders.len();
+            for filename in filenames {
+                filename_senders[filename_senders_idx].send(ParsingMessages::Filename(filename));
+                filename_senders_idx += 1;
+                if filename_senders_idx ==  num_filename_senders - 1 {
+                    filename_senders_idx = 0;
+                }
+            }
+
+            for filename_sender in filename_senders {
                 filename_sender.send(ParsingMessages::Done);
+            }
+
+            let mut dones = 0;
+            while dones < pool.workers() {
+                match agg_receiver.recv() {
+                    Ok(AggregationMessages::Aggregate(new_agg)) => {
+                        debug!("Received new_agg having {} records.", new_agg.len());
+                        record_handling::aggregate_records(&new_agg, &mut agg);
+                    },
+                    Ok(AggregationMessages::Done) => dones += 1,
+                    Err(_) => debug!("Received an error from one of the parsing workers."),
+                }
             }
 
             let number_of_records = agg.len();
@@ -125,12 +152,14 @@ fn run_file_processor(filename_receiver: mpsc::Receiver<ParsingMessages>,
                       );
                   });
                 debug!("Found {} aggregates in {}.", agg.len(), filename.path().display());
+                aggregate_sender.send(AggregationMessages::Aggregate(agg));
                 false
             },
             Ok(ParsingMessages::Done) => true,
             Err(_) => true,
         }
     }
+    aggregate_sender.send(AggregationMessages::Done);
 }
 
 const LOG_LOCATION_ARG: &'static str = "log-location";
