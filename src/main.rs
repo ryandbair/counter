@@ -19,9 +19,12 @@ use std::io::Write;
 use std::sync::mpsc;
 use walkdir::DirEntry;
 
+// TODO: Refactor and test this code.
+// TODO: Try the pub/sub version after this version is working and tested properly.
 fn main() {
     env_logger::init().unwrap();
 
+    // TODO: Move this to a fn.
     let args = clap::App::new("counter")
         .arg(clap::Arg::with_name(LOG_LOCATION_ARG)
             .required(true)
