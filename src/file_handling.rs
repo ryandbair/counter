@@ -48,7 +48,7 @@ pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
         debug!("Processing file {}.", filename.path().display());
         match File::open(filename.path()) {
             Ok(file) => {
-                let file_record_count = handle_file(file, record_handler);
+                let file_record_count = process_file(file, record_handler);
                 debug!("Found {} records in file {}.",
                        file_record_count,
                        filename.path().display());
@@ -66,7 +66,7 @@ pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
     total_record_count
 }
 
-pub fn handle_file<H>(file: File, record_handler: &mut H) -> usize
+pub fn process_file<H>(file: File, record_handler: &mut H) -> usize
     where H: FnMut(CounterResult) -> ()
 {
     let mut file_record_count = 0;
