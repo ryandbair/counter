@@ -47,43 +47,38 @@ fn main() {
     let mut filenames = Vec::new();
     let exit_code = match file_handling::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
-//            let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
-//            debug!("Found {} files.", num_files);
-//
-//            let number_of_records =
-//                file_handling::process_files(&filenames,
-//                                             &mut |counter_result: counter::CounterResult| {
-//                                                 record_handling::parsing_result_handler(
-//                                                     counter_result, &mut agg
-//                                                 );
-//                                             });
-//            debug!("Processed {} records in {} files.",
-//                   number_of_records,
-//                   num_files);
-//
-//            for (aggregate, total) in &agg {
-//                println!("{},{},{},{}",
-//                         aggregate.system_name,
-//                         aggregate.day,
-//                         aggregate.client_address,
-//                         total);
-//            }
-//
-//            if let Some(start_time) = start {
-//                let end_time = UTC::now();
-//                let time = end_time - start_time;
-//                println!("Processed {} files having {} records in {} milliseconds and produced \
-//                          {} aggregates.",
-//                         num_files,
-//                         number_of_records,
-//                         time.num_milliseconds(),
-//                         agg.len());
-//            }
+            let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
+            debug!("Found {} files.", num_files);
             for x in 0..pool.workers() {
                 let (filename_sender, filename_receiver) = mpsc::channel::<_>();
                 let (agg_sender, agg_receiver) = mpsc::channel::<_>();
                 pool.spawn(move ||  run_file_processor(filename_receiver, agg_sender) );
                 filename_sender.send(ParsingMessages::Filename(filenames[x].clone()));
+                filename_sender.send(ParsingMessages::Done);
+            }
+
+            let number_of_records = agg.len();
+            debug!("Processed {} records in {} files.",
+                   number_of_records,
+                   num_files);
+
+            for (aggregate, total) in &agg {
+                println!("{},{},{},{}",
+                         aggregate.system_name,
+                         aggregate.day,
+                         aggregate.client_address,
+                         total);
+            }
+
+            if let Some(start_time) = start {
+                let end_time = UTC::now();
+                let time = end_time - start_time;
+                println!("Processed {} files having {} records in {} milliseconds and produced \
+                          {} aggregates.",
+                         num_files,
+                         number_of_records,
+                         time.num_milliseconds(),
+                         agg.len());
             }
             EXIT_SUCCESS
         }
