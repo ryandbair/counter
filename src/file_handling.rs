@@ -2,7 +2,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use walkdir;
-use walkdir::{DirEntry, WalkDir, WalkDirIterator};
+use walkdir::{DirEntry, WalkDir};
 use elp;
 use {CounterResult, CounterError};
 
@@ -39,34 +39,30 @@ pub fn file_list(dir: &Path, filenames: &mut Vec<DirEntry>) -> Result<usize, wal
 ///
 /// All failures including file access, file read, and parsing failures are passed to the
 /// `record_handler` as a `ParsingErrors`.
-pub fn process_files<H>(filenames: &[DirEntry], record_handler: &mut H) -> usize
+pub fn process_file<H>(filename: &DirEntry, record_handler: &mut H) -> usize
     where H: FnMut(CounterResult) -> ()
 {
-
     let mut total_record_count = 0;
-    for filename in filenames {
-        debug!("Processing file {}.", filename.path().display());
-        match File::open(filename.path()) {
-            Ok(file) => {
-                let file_record_count = process_file(file, record_handler);
-                debug!("Found {} records in file {}.",
-                       file_record_count,
-                       filename.path().display());
-                total_record_count += file_record_count;
-            }
+    debug!("Processing file {}.", filename.path().display());
+    match File::open(filename.path()) {
+        Ok(file) => {
+            total_record_count = read_records(file, record_handler);
+            debug!("Found {} records in file {}.",
+            total_record_count,
+            filename.path().display());
+        }
 
-            Err(_) => {
-                record_handler(Err(CounterError::CouldNotOpenFile {
-                    path: format!("{}", filename.path().display()),
-                }))
-            }
+        Err(_) => {
+            record_handler(Err(CounterError::CouldNotOpenFile {
+                path: format!("{}", filename.path().display()),
+            }))
         }
     }
 
     total_record_count
 }
 
-pub fn process_file<H>(file: File, record_handler: &mut H) -> usize
+pub fn read_records<H>(file: File, record_handler: &mut H) -> usize
     where H: FnMut(CounterResult) -> ()
 {
     let mut file_record_count = 0;

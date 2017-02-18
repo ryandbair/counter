@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use counter::{file_handling, record_handling};
 use std::io::Write;
 use std::sync::mpsc;
-use walkdir::{DirEntry, WalkDir, WalkDirIterator};
+use walkdir::DirEntry;
 
 fn main() {
     env_logger::init().unwrap();
@@ -82,7 +82,7 @@ fn main() {
             for x in 0..pool.workers() {
                 let (filename_sender, filename_receiver) = mpsc::channel::<_>();
                 let (agg_sender, agg_receiver) = mpsc::channel::<_>();
-                pool.spawn(move ||  start_file_processor(filename_receiver, agg_sender) );
+                pool.spawn(move ||  run_file_processor(filename_receiver, agg_sender) );
                 filename_sender.send(filenames[x].clone());
             }
             EXIT_SUCCESS
@@ -100,12 +100,24 @@ fn main() {
     std::process::exit(exit_code);
 }
 
-fn start_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sender: mpsc::Sender<HashMap<record_handling::AggregateELBRecord, i64>>) -> () {
+// TODO: Test this.
+// TODO: Use a real file.
+fn run_file_processor(filename_receiver: mpsc::Receiver<DirEntry>, aggregate_sender: mpsc::Sender<HashMap<record_handling::AggregateELBRecord, i64>>) -> () {
     let mut done = false;
+    // TODO: There needs to be a timeout here to ensure the program doesn't run forever.
+    // TODO: Make use of try_rec.
+    // TODO: Report a timeout back to main.
     while !done {
         done = match filename_receiver.recv() {
             Ok(filename) => {
-                println!("filename_receiver.recv() = {:?}", filename);
+                let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
+                file_handling::process_file(&filename,
+                  &mut |counter_result: counter::CounterResult| {
+                      record_handling::parsing_result_handler(
+                          counter_result, &mut agg
+                      );
+                  });
+                println!("filename_receiver.recv() = {:?}, aggs = {}", filename, agg.len());
                 true
             },
 
