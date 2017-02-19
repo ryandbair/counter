@@ -54,32 +54,34 @@ fn main() {
             debug!("Found {} files.", num_files);
             let mut filename_senders = Vec::new();
             let (agg_sender, agg_receiver) = mpsc::channel::<_>();
-            for _ in 0..pool.workers() {
+            for sender_id in 0..pool.workers() {
                 let (filename_sender, filename_receiver) = mpsc::channel::<_>();
                 filename_senders.push(filename_sender);
                 let cloned_agg_sender = agg_sender.clone();
-                pool.spawn(move ||  run_file_processor(filename_receiver, cloned_agg_sender) );
+                pool.spawn(move ||  run_file_processor(sender_id, filename_receiver, cloned_agg_sender) );
             }
 
-            let mut filename_senders_idx = 0;
-            let num_filename_senders = filename_senders.len();
-            for filename in filenames {
-                filename_senders[filename_senders_idx].send(ParsingMessages::Filename(filename));
-                filename_senders_idx += 1;
-                if filename_senders_idx ==  num_filename_senders - 1 {
-                    filename_senders_idx = 0;
-                }
-            }
-
-            for filename_sender in filename_senders {
-                filename_sender.send(ParsingMessages::Done);
-            }
-
+            let mut number_of_records = 0;
             let mut dones = 0;
             while dones < pool.workers() {
                 match agg_receiver.recv() {
-                    Ok(AggregationMessages::Aggregate(new_agg)) => {
+                    Ok(AggregationMessages::Start(sender_id)) => {
+                        let sender = &filename_senders[sender_id];
+                        if let Some(filename) = filenames.pop() {
+                            let _ = sender.send(ParsingMessages::Filename(filename));
+                        } else {
+                            let _ = sender.send(ParsingMessages::Done);
+                        }
+                    },
+                    Ok(AggregationMessages::Aggregate(num_parsed_records, new_agg, sender_id)) => {
                         debug!("Received new_agg having {} records.", new_agg.len());
+                        let sender = &filename_senders[sender_id];
+                        if let Some(filename) = filenames.pop() {
+                            let _ = sender.send(ParsingMessages::Filename(filename));
+                        } else {
+                            let _ = sender.send(ParsingMessages::Done);
+                        }
+                        number_of_records += num_parsed_records;
                         record_handling::aggregate_records(&new_agg, &mut agg);
                     },
                     Ok(AggregationMessages::Done) => dones += 1,
@@ -87,7 +89,6 @@ fn main() {
                 }
             }
 
-            let number_of_records = agg.len();
             debug!("Processed {} records in {} files.",
                    number_of_records,
                    num_files);
@@ -126,7 +127,8 @@ fn main() {
 }
 
 enum AggregationMessages {
-    Aggregate(HashMap<record_handling::AggregateELBRecord, i64>),
+    Start(usize),
+    Aggregate(usize, HashMap<record_handling::AggregateELBRecord, i64>, usize),
     Done
 }
 
@@ -137,32 +139,34 @@ enum ParsingMessages {
 
 // TODO: Test this.
 // TODO: Use a real file.
-fn run_file_processor(filename_receiver: mpsc::Receiver<ParsingMessages>,
+fn run_file_processor(id: usize,
+                      filename_receiver: mpsc::Receiver<ParsingMessages>,
                       aggregate_sender: mpsc::Sender<AggregationMessages>) -> () {
     let mut done = false;
     // TODO: There needs to be a timeout here to ensure the program doesn't run forever.
     // TODO: Make use of try_rec.
     // TODO: Report a timeout back to main.
+    let _ = aggregate_sender.send(AggregationMessages::Start(id));
     while !done {
         done = match filename_receiver.recv() {
             Ok(ParsingMessages::Filename(filename)) => {
                 debug!("Received filename {}.", filename.path().display());
                 let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
-                file_handling::process_file(&filename,
+                let num_records = file_handling::process_file(&filename,
                   &mut |counter_result: counter::CounterResult| {
                       record_handling::parsing_result_handler(
                           counter_result, &mut agg
                       );
                   });
                 debug!("Found {} aggregates in {}.", agg.len(), filename.path().display());
-                aggregate_sender.send(AggregationMessages::Aggregate(agg));
+                let _ = aggregate_sender.send(AggregationMessages::Aggregate(num_records, agg, id));
                 false
             },
             Ok(ParsingMessages::Done) => true,
             Err(_) => true,
         }
     }
-    aggregate_sender.send(AggregationMessages::Done);
+    let _ = aggregate_sender.send(AggregationMessages::Done);
 }
 
 const LOG_LOCATION_ARG: &'static str = "log-location";
