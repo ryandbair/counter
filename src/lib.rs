@@ -2,8 +2,10 @@ extern crate walkdir;
 #[macro_use]
 extern crate log;
 extern crate elp;
-extern crate urlparse;
 extern crate chrono;
+extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 use std::fmt;
 use std::fmt::{Display, Formatter};

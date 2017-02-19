@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use urlparse::{Url, urlparse};
 use std::io::Write;
 
 use chrono::{Date, DateTime, UTC};
 use std::net::Ipv4Addr;
+use regex::Regex;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct AggregateELBRecord {
@@ -27,11 +27,10 @@ pub fn parsing_result_handler(counter_result: ::CounterResult,
                               -> () {
     match counter_result {
         Ok(elb_record) => {
-            let url = urlparse(&elb_record.request_url);
             let aer = AggregateELBRecord::new(
                 elb_record.timestamp,
                 *elb_record.client_address.ip(),
-                parse_system_name(&url)
+                parse_system_name_regex(&elb_record.request_url)
                     .unwrap_or_else(|| "UNDEFINED_SYSTEM".to_owned())
             );
             aggregate_record(aer, aggregation);
@@ -41,10 +40,12 @@ pub fn parsing_result_handler(counter_result: ::CounterResult,
     }
 }
 
-fn parse_system_name(url: &Url) -> Option<String> {
-    url.get_parsed_query()
-        .map(|query_map| query_map.get("system").map(|systems| systems[0].clone()))
-        .unwrap_or_else(|| None)
+lazy_static! {
+    static ref SYSTEM_REGEX: Regex = Regex::new(r"(?i)system=([^&]*)").unwrap();
+}
+
+fn parse_system_name_regex(q: &str) -> Option<String> {
+    SYSTEM_REGEX.captures(q).and_then( |cap| cap.get(1).map(|sys| sys.as_str().to_string() ))
 }
 
 pub fn aggregate_records(new_aggs: &HashMap<AggregateELBRecord, i64>,
