@@ -3,6 +3,7 @@ extern crate walkdir;
 extern crate log;
 extern crate elp;
 extern crate urlparse;
+extern crate chrono;
 
 use std::fmt;
 use std::fmt::{Display, Formatter};

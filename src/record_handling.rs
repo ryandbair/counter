@@ -2,11 +2,23 @@ use std::collections::HashMap;
 use urlparse::{Url, urlparse};
 use std::io::Write;
 
+use chrono::{Date, DateTime, UTC};
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct AggregateELBRecord {
-    pub day: String,
+    pub day: Date<UTC>,
     pub client_address: String,
     pub system_name: String,
+}
+
+impl AggregateELBRecord {
+    fn new(day: DateTime<UTC>, client_address: String, system: String) -> AggregateELBRecord {
+        AggregateELBRecord {
+            day: day.date(),
+            client_address: client_address,
+            system_name: system,
+        }
+    }
 }
 
 pub fn parsing_result_handler(counter_result: ::CounterResult,
@@ -15,12 +27,12 @@ pub fn parsing_result_handler(counter_result: ::CounterResult,
     match counter_result {
         Ok(elb_record) => {
             let url = urlparse(&elb_record.request_url);
-            let aer = AggregateELBRecord {
-                day: elb_record.timestamp.format("%Y-%m-%d").to_string(),
-                client_address: elb_record.client_address.ip().to_string(),
-                system_name: parse_system_name(&url)
-                    .unwrap_or_else(|| "UNDEFINED_SYSTEM".to_owned()),
-            };
+            let aer = AggregateELBRecord::new(
+                elb_record.timestamp,
+                elb_record.client_address.ip().to_string(),
+                parse_system_name(&url)
+                    .unwrap_or_else(|| "UNDEFINED_SYSTEM".to_owned())
+            );
             aggregate_record(aer, aggregation);
         }
         Err(::CounterError::RecordParsingErrors(ref errs)) => println_stderr!("{:?}", errs.record),

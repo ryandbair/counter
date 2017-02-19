@@ -1,3 +1,7 @@
 target
 .idea
 *.bk
+
+out.folded
+out.stacks
+out.svg

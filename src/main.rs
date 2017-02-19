@@ -96,7 +96,7 @@ fn main() {
             for (aggregate, total) in &agg {
                 println!("{},{},{},{}",
                          aggregate.system_name,
-                         aggregate.day,
+                         aggregate.day.format("%Y-%m-%d").to_string(),
                          aggregate.client_address,
                          total);
             }
