@@ -3,16 +3,17 @@ use urlparse::{Url, urlparse};
 use std::io::Write;
 
 use chrono::{Date, DateTime, UTC};
+use std::net::Ipv4Addr;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct AggregateELBRecord {
     pub day: Date<UTC>,
-    pub client_address: String,
+    pub client_address: Ipv4Addr,
     pub system_name: String,
 }
 
 impl AggregateELBRecord {
-    fn new(day: DateTime<UTC>, client_address: String, system: String) -> AggregateELBRecord {
+    fn new(day: DateTime<UTC>, client_address: Ipv4Addr, system: String) -> AggregateELBRecord {
         AggregateELBRecord {
             day: day.date(),
             client_address: client_address,
@@ -29,7 +30,7 @@ pub fn parsing_result_handler(counter_result: ::CounterResult,
             let url = urlparse(&elb_record.request_url);
             let aer = AggregateELBRecord::new(
                 elb_record.timestamp,
-                elb_record.client_address.ip().to_string(),
+                *elb_record.client_address.ip(),
                 parse_system_name(&url)
                     .unwrap_or_else(|| "UNDEFINED_SYSTEM".to_owned())
             );
