@@ -12,6 +12,7 @@ extern crate scoped_pool as sp;
 extern crate walkdir;
 
 use std::path;
+use std::borrow::Borrow;
 use chrono::{DateTime, UTC};
 use std::collections::HashMap;
 use counter::{file_handling, record_handling};
@@ -50,7 +51,7 @@ fn main() {
     let mut filenames = Vec::new();
     let exit_code = match file_handling::file_list(log_location, &mut filenames) {
         Ok(num_files) => {
-            let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
+            let mut agg: HashMap<record_handling::AggregateELBRecord<record_handling::MTypeH>, i64> = HashMap::new();
             debug!("Found {} files.", num_files);
             let mut filename_senders = Vec::new();
             let (agg_sender, agg_receiver) = mpsc::channel::<_>();
@@ -95,7 +96,7 @@ fn main() {
 
             for (aggregate, total) in &agg {
                 println!("{},{},{},{}",
-                         aggregate.system_name,
+                         aggregate.system_name.as_ref().map_or("UNKNOWN", |v| v.borrow()),
                          aggregate.day.format("%Y-%m-%d").to_string(),
                          aggregate.client_address,
                          total);
@@ -126,9 +127,9 @@ fn main() {
     std::process::exit(exit_code);
 }
 
-enum AggregationMessages {
+enum AggregationMessages<'a> {
     Start(usize),
-    Aggregate(usize, HashMap<record_handling::AggregateELBRecord, i64>, usize),
+    Aggregate(usize, HashMap<record_handling::AggregateELBRecord<'a, record_handling::MTypeH>, i64>, usize),
     Done
 }
 
@@ -151,7 +152,7 @@ fn run_file_processor(id: usize,
         done = match filename_receiver.recv() {
             Ok(ParsingMessages::Filename(filename)) => {
                 debug!("Received filename {}.", filename.path().display());
-                let mut agg: HashMap<record_handling::AggregateELBRecord, i64> = HashMap::new();
+                let mut agg: HashMap<record_handling::AggregateELBRecord<record_handling::MTypeH>, i64> = HashMap::new();
                 let num_records = file_handling::process_file(&filename,
                   &mut |counter_result: counter::CounterResult| {
                       record_handling::parsing_result_handler(
